@@ -30,7 +30,7 @@ class Utilities
      * purifyText
      *
      * @param string  $text    text to clean
-     * @param boolean $keyword replace some punctuation with white space
+     * @param bool $keyword replace some punctuation with white space
      *
      * @return string cleaned text
      */

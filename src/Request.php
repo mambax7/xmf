@@ -372,7 +372,7 @@ class Request
      * @param string $name variable to look for
      * @param string $hash hash to check
      *
-     * @return boolean True if hash has an element 'name', otherwise false
+     * @return bool True if hash has an element 'name', otherwise false
      */
     public static function hasVar($name, $hash = 'default')
     {
@@ -395,7 +395,7 @@ class Request
      * @param string  $name      Name
      * @param string  $value     Value
      * @param string  $hash      Hash
-     * @param boolean $overwrite Boolean
+     * @param bool $overwrite Boolean
      *
      * @return string Previous value
      */
@@ -519,7 +519,7 @@ class Request
      *
      * @param array   $array     An associative array of key-value pairs
      * @param string  $hash      The request variable to set (POST, GET, FILES, METHOD)
-     * @param boolean $overwrite If true and an existing key is found, the value is overwritten,
+     * @param bool $overwrite If true and an existing key is found, the value is overwritten,
      *                            otherwise it is ignored
      *
      * @return void

@@ -124,7 +124,7 @@ class PrintContent extends AbstractTemplate
     /**
      * setPagetitle
      *
-     * @param boolean $pagetitle use page title
+     * @param bool $pagetitle use page title
      *
      * @return PrintContent
      */
@@ -137,7 +137,7 @@ class PrintContent extends AbstractTemplate
     /**
      * getPagetitle
      *
-     * @return boolean use page title
+     * @return bool use page title
      */
     public function getPagetitle()
     {
