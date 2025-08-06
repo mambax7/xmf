@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /*
  You may not change or alter any portion of this comment or credits
  of supporting developers from this source code or any supporting source code
@@ -10,6 +12,9 @@
  */
 
 namespace Xmf;
+
+use DOMDocument;
+use DOMNode;
 
 /**
  * FilterInput is a class for filtering input from any data source
@@ -34,14 +39,23 @@ namespace Xmf;
  */
 class FilterInput
 {
-    protected $tagsArray;         // default is empty array
-    protected $attrArray;         // default is empty array
+    /** @var string[] */
+    protected $tagsArray = []; // default is empty array
 
-    protected $tagsMethod;        // default is 0
-    protected $attrMethod;        // default is 0
+    /** @var string[] */
+    protected $attrArray = []; // default is empty array
 
-    protected $xssAuto;           // default is 1
-    protected $tagBlacklist = array(
+    /** @var int */
+    protected $tagsMethod = 0; // default is 0
+
+    /** @var int */
+    protected $attrMethod = 0; // default is 0
+
+    /** @var int */
+    protected $xssAuto = 1; // default is 1
+
+    /** @var string[] */
+    protected $tagBlacklist = [
         'applet',
         'body',
         'bgsound',
@@ -63,10 +77,12 @@ class FilterInput
         'script',
         'style',
         'title',
-        'xml'
-    );
+        'xml',
+    ];
+
+    /** @var string[] */
     // also, it will strip ALL event handlers
-    protected $attrBlacklist = array('action', 'background', 'codebase', 'dynsrc', 'lowsrc');
+    protected $attrBlacklist = ['action', 'background', 'codebase', 'dynsrc', 'lowsrc'];
 
     /**
      * Constructor
@@ -78,24 +94,17 @@ class FilterInput
      * @param int   $xssAuto    - 0 = only auto clean essentials, 1 = allow clean blacklisted tags/attr
      */
     protected function __construct(
-        $tagsArray = array(),
-        $attrArray = array(),
-        $tagsMethod = 0,
-        $attrMethod = 0,
-        $xssAuto = 1
+        array $tagsArray = [],
+        array $attrArray = [],
+        int $tagsMethod = 0,
+        int $attrMethod = 0,
+        int $xssAuto = 1
     ) {
         // make sure user defined arrays are in lowercase
-        $tagsArrayCount = count($tagsArray);
-        for ($i = 0; $i < $tagsArrayCount; ++$i) {
-            $tagsArray[$i] = strtolower($tagsArray[$i]);
-        }
-        $attrArrayCount = count($attrArray);
-        for ($i = 0; $i < $attrArrayCount; ++$i) {
-            $attrArray[$i] = strtolower($attrArray[$i]);
-        }
+        $this->tagsArray = array_map('strtolower', $tagsArray);
+        $this->attrArray = array_map('strtolower', $attrArray);
+
         // assign to member vars
-        $this->tagsArray  = (array) $tagsArray;
-        $this->attrArray  = (array) $attrArray;
         $this->tagsMethod = $tagsMethod;
         $this->attrMethod = $attrMethod;
         $this->xssAuto    = $xssAuto;
@@ -117,21 +126,17 @@ class FilterInput
      * @return FilterInput object.
      */
     public static function getInstance(
-        $tagsArray = array(),
-        $attrArray = array(),
-        $tagsMethod = 0,
-        $attrMethod = 0,
-        $xssAuto = 1
-    ) {
-        static $instances;
+        array $tagsArray = [],
+        array $attrArray = [],
+        int $tagsMethod = 0,
+        int $attrMethod = 0,
+        int $xssAuto = 1
+    ): self {
+        static $instances = [];
 
         $className = get_called_class(); // so an extender gets an instance of itself
 
-        $sig = md5(serialize(array($className, $tagsArray, $attrArray, $tagsMethod, $attrMethod, $xssAuto)));
-
-        if (!isset($instances)) {
-            $instances = array();
-        }
+        $sig = md5(serialize([$className, $tagsArray, $attrArray, $tagsMethod, $attrMethod, $xssAuto]));
 
         if (empty($instances[$sig])) {
             $instances[$sig] = new static($tagsArray, $attrArray, $tagsMethod, $attrMethod, $xssAuto);
@@ -163,10 +168,10 @@ class FilterInput
         if (is_string($source)) {
             // clean this string
             return $this->remove($this->decode($source));
-        } else {
-            // return parameter as given
-            return $source;
         }
+
+        // return parameter as given
+        return $source;
     }
 
     /**
@@ -181,7 +186,7 @@ class FilterInput
      * @return mixed 'Cleaned' version of input parameter
      * @static
      */
-    public static function clean($source, $type = 'string')
+    public static function clean($source, string $type = 'string')
     {
         static $filter = null;
 
@@ -205,9 +210,8 @@ class FilterInput
      *                        STRING, ARRAY, PATH, USERNAME, WEBURL, EMAIL, IP)
      *
      * @return mixed 'Cleaned' version of input parameter
-     * @static
      */
-    public function cleanVar($source, $type = 'string')
+    public function cleanVar($source, string $type = 'string')
     {
         // Handle the type constraint
         switch (strtoupper($type)) {
@@ -272,7 +276,7 @@ class FilterInput
                 // allow only relative, http or https
                 $urlparts = parse_url($result);
                 if (!empty($urlparts['scheme'])
-                    && !($urlparts['scheme'] === 'http' || $urlparts['scheme'] === 'https')
+                    && !('http' === $urlparts['scheme'] || 'https' === $urlparts['scheme'])
                 ) {
                     $result = '';
                 }
@@ -309,235 +313,130 @@ class FilterInput
     /**
      * Internal method to iteratively remove all unwanted tags and attributes
      *
-     * @param String $source - input string to be 'cleaned'
+     * @param string $source - input string to be 'cleaned'
      *
-     * @return String $source - 'cleaned' version of input parameter
+     * @return string $source - 'cleaned' version of input parameter
      */
-    protected function remove($source)
+    protected function remove(string $source): string
     {
-        $loopCounter = 0;
-        // provides nested-tag protection
-        while ($source != $this->filterTags($source)) {
-            $source = $this->filterTags($source);
-            ++$loopCounter;
+        if (empty(trim($source))) {
+            return $source;
         }
 
-        return $source;
+        $dom = new DOMDocument();
+        // Suppress warnings for malformed HTML
+        libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="UTF-8">' . $source, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
+
+        $this->filterNode($dom->documentElement);
+
+        // Get the cleaned HTML, removing the wrapper div
+        $body = $dom->getElementsByTagName('body')->item(0);
+        $cleanedHtml = '';
+        if ($body) {
+            foreach ($body->childNodes as $child) {
+                $cleanedHtml .= $dom->saveHTML($child);
+            }
+        }
+
+        return $cleanedHtml;
     }
 
     /**
-     * Internal method to strip a string of certain tags
+     * Recursively filter a DOM node, removing unwanted tags and attributes.
      *
-     * @param String $source - input string to be 'cleaned'
-     *
-     * @return String $source - 'cleaned' version of input parameter
+     * @param DOMNode $node The node to filter
      */
-    protected function filterTags($source)
+    protected function filterNode(DOMNode $node): void
     {
-        // filter pass setup
-        $preTag = null;
-        $postTag = $source;
-        // find initial tag's position
-        $tagOpen_start = strpos($source, '<');
-        // iterate through string until no tags left
-        while ($tagOpen_start !== false) {
-            // process tag iteratively
-            $preTag .= substr($postTag, 0, $tagOpen_start);
-            $postTag = substr($postTag, $tagOpen_start);
-            $fromTagOpen = substr($postTag, 1);
-            // end of tag
-            $tagOpen_end = strpos($fromTagOpen, '>');
-            if ($tagOpen_end === false) {
-                break;
+        // Filter children first
+        if ($node->hasChildNodes()) {
+            // Iterate backwards to avoid issues with node removal
+            for ($i = $node->childNodes->length - 1; $i >= 0; --$i) {
+                $child = $node->childNodes->item($i);
+                if ($child instanceof \DOMElement) {
+                    $this->filterNode($child);
+                }
             }
-            // next start of tag (for nested tag assessment)
-            $tagOpen_nested = strpos($fromTagOpen, '<');
-            if (($tagOpen_nested !== false) && ($tagOpen_nested < $tagOpen_end)) {
-                $preTag .= substr($postTag, 0, ($tagOpen_nested + 1));
-                $postTag = substr($postTag, ($tagOpen_nested + 1));
-                $tagOpen_start = strpos($postTag, '<');
-                continue;
+        }
+
+        // Filter the node itself
+        if ($node instanceof \DOMElement) {
+            $tagName = strtolower($node->tagName);
+
+            // 1. Check tag against blacklist
+            if ($this->xssAuto && in_array($tagName, $this->tagBlacklist, true)) {
+                $node->parentNode->removeChild($node);
+                return;
             }
-            $currentTag = substr($fromTagOpen, 0, $tagOpen_end);
-            $tagLength = strlen($currentTag);
-            if (!$tagOpen_end) {
-                $preTag .= $postTag;
+
+            // 2. Check tag against whitelist/blacklist
+            $tagAllowed = in_array($tagName, $this->tagsArray, true);
+            if ($this->tagsMethod === 0 && !$tagAllowed) { // Whitelist
+                $node->parentNode->removeChild($node);
+                return;
             }
-            // iterate through tag finding attribute pairs - setup
-            $tagLeft = $currentTag;
-            $attrSet = array();
-            $currentSpace = strpos($tagLeft, ' ');
-            if (substr($currentTag, 0, 1) === "/") {
-                // is end tag
-                $isCloseTag = true;
-                list($tagName) = explode(' ', $currentTag);
-                $tagName = substr($tagName, 1);
-            } else {
-                // is start tag
-                $isCloseTag = false;
-                list($tagName) = explode(' ', $currentTag);
+            if ($this->tagsMethod === 1 && $tagAllowed) { // Blacklist
+                $node->parentNode->removeChild($node);
+                return;
             }
-            // excludes all "non-regular" tagnames OR no tagname OR remove if xssauto is on and tag is blacklisted
-            if ((!preg_match("/^[a-z][a-z0-9]*$/i", $tagName))
-                || (!$tagName)
-                || ((in_array(strtolower($tagName), $this->tagBlacklist))
-                    && ($this->xssAuto))
-            ) {
-                $postTag = substr($postTag, ($tagLength + 2));
-                $tagOpen_start = strpos($postTag, '<');
-                // don't append this tag
-                continue;
-            }
-            // this while is needed to support attribute values with spaces in!
-            while ($currentSpace !== false) {
-                $fromSpace = substr($tagLeft, ($currentSpace + 1));
-                $nextSpace = strpos($fromSpace, ' ');
-                $openQuotes = strpos($fromSpace, '"');
-                $closeQuotes = strpos(substr($fromSpace, ($openQuotes + 1)), '"') + $openQuotes + 1;
-                // another equals exists
-                if (strpos($fromSpace, '=') !== false) {
-                    // opening and closing quotes exists
-                    if (($openQuotes !== false)
-                        && (strpos(substr($fromSpace, ($openQuotes + 1)), '"') !== false)
+
+            // 3. Filter attributes
+            if ($node->hasAttributes()) {
+                $attributes = iterator_to_array($node->attributes);
+                foreach ($attributes as $attr) {
+                    $attrName = strtolower($attr->name);
+
+                    // 3a. Remove all event handlers
+                    if ($this->xssAuto && 0 === strpos($attrName, 'on')) {
+                        $node->removeAttributeNode($attr);
+                        continue;
+                    }
+
+                    // 3b. Check attribute against blacklist
+                    if ($this->xssAuto && in_array($attrName, $this->attrBlacklist, true)) {
+                        $node->removeAttributeNode($attr);
+                        continue;
+                    }
+
+                    // 3c. Check attribute against whitelist/blacklist
+                    $attrAllowed = in_array($attrName, $this->attrArray, true);
+                    if ($this->attrMethod === 0 && !$attrAllowed) { // Whitelist
+                        $node->removeAttributeNode($attr);
+                        continue;
+                    }
+                    if ($this->attrMethod === 1 && $attrAllowed) { // Blacklist
+                        $node->removeAttributeNode($attr);
+                        continue;
+                    }
+
+                    // 3d. Check for dangerous attribute values
+                    $attrValue = strtolower($attr->value);
+                    if (
+                        strpos($attrValue, 'expression') !== false ||
+                        strpos($attrValue, 'javascript:') !== false ||
+                        strpos($attrValue, 'vbscript:') !== false ||
+                        strpos($attrValue, 'mocha:') !== false ||
+                        strpos($attrValue, 'livescript:') !== false
                     ) {
-                        $attr = substr($fromSpace, 0, ($closeQuotes + 1));
-                    } else {
-                        $attr = substr($fromSpace, 0, $nextSpace);
+                        $node->removeAttributeNode($attr);
+                        continue;
                     }
-                    // one or neither exist
-                } else {
-                    // no more equals exist
-                    $attr = substr($fromSpace, 0, $nextSpace);
-                }
-                // last attr pair
-                if (!$attr) {
-                    $attr = $fromSpace;
-                }
-                // add to attribute pairs array
-                $attrSet[] = $attr;
-                // next inc
-                $tagLeft = substr($fromSpace, strlen($attr));
-                $currentSpace = strpos($tagLeft, ' ');
-            }
-            // appears in array specified by user
-            $tagFound = in_array(strtolower($tagName), $this->tagsArray);
-            // remove this tag on condition
-            if ($tagFound !== (bool) $this->tagsMethod) {
-                // reconstruct tag with allowed attributes
-                if (!$isCloseTag) {
-                    $attrSet = $this->filterAttr($attrSet);
-                    $preTag .= '<' . $tagName;
-                    $attrSetCount = count($attrSet);
-                    for ($i = 0; $i < $attrSetCount; ++$i) {
-                        $preTag .= ' ' . $attrSet[$i];
-                    }
-                    // reformat single tags to XHTML
-                    if (strpos($fromTagOpen, "</" . $tagName)) {
-                        $preTag .= '>';
-                    } else {
-                        $preTag .= ' />';
-                    }
-                } else {
-                    // just the tagname
-                    $preTag .= '</' . $tagName . '>';
-                }
-            }
-            // find next tag's start
-            $postTag = substr($postTag, ($tagLength + 2));
-            $tagOpen_start = strpos($postTag, '<');
-        }
-        // append any code after end of tags
-        $preTag .= $postTag;
-
-        return $preTag;
-    }
-
-    /**
-     * Internal method to strip a tag of certain attributes
-     *
-     * @param array $attrSet attributes
-     *
-     * @return array $newSet stripped attributes
-     */
-    protected function filterAttr($attrSet)
-    {
-        $newSet = array();
-        // process attributes
-        $attrSetCount = count($attrSet);
-        for ($i = 0; $i < $attrSetCount; ++$i) {
-            // skip blank spaces in tag
-            if (!$attrSet[$i]) {
-                continue;
-            }
-            // split into attr name and value
-            $attrSubSet = explode('=', trim($attrSet[$i]));
-            list($attrSubSet[0]) = explode(' ', $attrSubSet[0]);
-            // removes all "non-regular" attr names AND also attr blacklisted
-            if ((!preg_match('/[a-z]*$/i', $attrSubSet[0]))
-                || (($this->xssAuto)
-                    && ((in_array(strtolower($attrSubSet[0]), $this->attrBlacklist))
-                        || (substr($attrSubSet[0], 0, 2) === 'on')))
-            ) {
-                continue;
-            }
-            // xss attr value filtering
-            if ($attrSubSet[1]) {
-                // strips unicode, hex, etc
-                $attrSubSet[1] = str_replace('&#', '', $attrSubSet[1]);
-                // strip normal newline within attr value
-                $attrSubSet[1] = preg_replace('/\s+/', '', $attrSubSet[1]);
-                // strip double quotes
-                $attrSubSet[1] = str_replace('"', '', $attrSubSet[1]);
-                // [requested feature] convert single quotes from either side to doubles
-                // (Single quotes shouldn't be used to pad attr value)
-                if ((substr($attrSubSet[1], 0, 1) === "'")
-                    && (substr($attrSubSet[1], (strlen($attrSubSet[1]) - 1), 1) === "'")
-                ) {
-                    $attrSubSet[1] = substr($attrSubSet[1], 1, (strlen($attrSubSet[1]) - 2));
-                }
-                // strip slashes
-                $attrSubSet[1] = stripslashes($attrSubSet[1]);
-            }
-            // auto strip attr's with "javascript:
-            if (((strpos(strtolower($attrSubSet[1]), 'expression') !== false)
-                    && (strtolower($attrSubSet[0]) === 'style')) ||
-                (strpos(strtolower($attrSubSet[1]), 'javascript:') !== false) ||
-                (strpos(strtolower($attrSubSet[1]), 'behaviour:') !== false) ||
-                (strpos(strtolower($attrSubSet[1]), 'vbscript:') !== false) ||
-                (strpos(strtolower($attrSubSet[1]), 'mocha:') !== false) ||
-                (strpos(strtolower($attrSubSet[1]), 'livescript:') !== false)
-            ) {
-                continue;
-            }
-
-            // if matches user defined array
-            $attrFound = in_array(strtolower($attrSubSet[0]), $this->attrArray);
-            // keep this attr on condition
-            if ($attrFound !== (bool) $this->attrMethod) {
-                if ($attrSubSet[1]) {
-                    // attr has value
-                    $newSet[] = $attrSubSet[0] . '="' . $attrSubSet[1] . '"';
-                } elseif ($attrSubSet[1] == "0") {
-                    // attr has decimal zero as value
-                    $newSet[] = $attrSubSet[0] . '="0"';
-                } else {
-                    // reformat single attributes to XHTML
-                    $newSet[] = $attrSubSet[0] . '="' . $attrSubSet[0] . '"';
                 }
             }
         }
-
-        return $newSet;
     }
+
 
     /**
      * Try to convert to plaintext
      *
-     * @param String $source string to decode
+     * @param string $source string to decode
      *
-     * @return String $source decoded
+     * @return string $source decoded
      */
-    protected function decode($source)
+    protected function decode(string $source): string
     {
         // url decode
         $charset = defined('_CHARSET') ? constant('_CHARSET') : 'utf-8';
@@ -545,16 +444,16 @@ class FilterInput
         // convert decimal
         $source = preg_replace_callback(
             '/&#(\d+);/m',
-            function ($matches) {
-                return chr($matches[1]);
+            static function ($matches) {
+                return chr((int)$matches[1]);
             },
             $source
         );
         // convert hex notation
         $source = preg_replace_callback(
             '/&#x([a-f0-9]+);/mi',
-            function ($matches) {
-                return chr('0x' . $matches[1]);
+            static function ($matches) {
+                return chr(hexdec($matches[1]));
             },
             $source
         );
