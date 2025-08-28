@@ -17,7 +17,7 @@ namespace Xmf;
  * @category  Xmf\Loader
  * @package   Xmf
  * @author    trabis <lusopoemas@gmail.com>
- * @copyright 2011-2018 XOOPS Project (https://xoops.org)
+ * @copyright 2000-2025 XOOPS Project (https://xoops.org)
  * @license   GNU GPL 2 or later (http://www.gnu.org/licenses/gpl-2.0.html)
  * @version   Release: 1.0
  * @link      https://xoops.org
